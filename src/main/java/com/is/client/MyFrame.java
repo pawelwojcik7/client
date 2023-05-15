@@ -1,18 +1,15 @@
 package com.is.client;
 
-import com.is.client.laptopservice.LaptopService;
-import com.is.client.laptopservice.LaptopServiceImplService;
-import com.is.client.laptopservice.StringArray;
-import com.is.client.laptopservice.XmlInputFormatArray;
+import com.is.client.laptopservice.*;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import javax.xml.namespace.QName;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
-import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MyFrame extends JFrame {
@@ -22,31 +19,33 @@ public class MyFrame extends JFrame {
     private JTextArea resultArea;
     private JComboBox<String> comboBox1;
     private JComboBox<String> comboBox2;
+    private JTable table;
+    private List<XmlInputFormat> list;
 
     private LaptopService port;
     private static final QName SERVICE_NAME = new QName("http://web.is.com/", "LaptopServiceImplService");
+
     public MyFrame() {
         super("Klient");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(400, 300);
-        setLayout(new FlowLayout());
+        setLayout(new BorderLayout());
 
-
+        list = new ArrayList<>();
 
         URL wsdlURL = LaptopServiceImplService.WSDL_LOCATION;
         LaptopServiceImplService ss = new LaptopServiceImplService(wsdlURL, SERVICE_NAME);
         port = ss.getLaptopServiceImplPort();
 
+        JPanel topPanel = new JPanel(new FlowLayout());
+        getContentPane().add(topPanel, BorderLayout.NORTH);
 
-
-        JButton button1 = new JButton("Button 1");
-        JButton button2 = new JButton("Button 2");
-        JButton button3 = new JButton("Button 3");
+        JButton button1 = new JButton("Liczba laptopow o rozdzielczosci");
+        JButton button2 = new JButton("Laptopy z matryca");
+        JButton button3 = new JButton("Liczba laptopow producenta");
 
         textField1 = new JTextField(10);
         textField2 = new JTextField(10);
-
-
 
         comboBox1 = new JComboBox<>();
         comboBox2 = new JComboBox<>();
@@ -54,38 +53,58 @@ public class MyFrame extends JFrame {
         fetchProducers();
         fetchScreenTypes();
 
-
-        button2.addActionListener(e -> {
-            String selectedScreenType = (String) comboBox2.getSelectedItem();
-            XmlInputFormatArray records = port.getRecordsByScreenType(selectedScreenType);
-            // Zaktualizuj obszar wyników za pomocą uzyskanych rekordów
-            // Zakładając, że XmlInputFormatArray ma metodę toString()
-            resultArea.setText(records.getItem().toString());
-        });
-
-        // Dodaj implementację dla button3, który wykorzystuje metodę getNumberOfRecordsByProducer
-        button3.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String selectedProducer = (String) comboBox1.getSelectedItem();
-                int numOfRecords = port.getNumberOfRecordsByProducer(selectedProducer);
-                // Zaktualizuj obszar wyników za pomocą uzyskanej liczby rekordów
-                resultArea.setText("Number of records: " + numOfRecords);
-            }
-        });
-
         resultArea = new JTextArea(5, 20);
         resultArea.setEditable(false);
 
+        topPanel.add(button1);
+        topPanel.add(textField1);
+        topPanel.add(textField2);
+        topPanel.add(button2);
+        topPanel.add(comboBox2);
+        topPanel.add(button3);
+        topPanel.add(comboBox1);
+        topPanel.add(resultArea);
 
-        getContentPane().add(button1);
-        getContentPane().add(button2);
-        getContentPane().add(button3);
-        getContentPane().add(textField1);
-        getContentPane().add(textField2);
-        getContentPane().add(comboBox1);
-        getContentPane().add(comboBox2);
-        getContentPane().add(resultArea);
+        table = new JTable();
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setPreferredSize(new Dimension(380, 150));
+        getContentPane().add(scrollPane, BorderLayout.CENTER);
+
+        button1.addActionListener(e -> {
+            String selectedProducer = (String) comboBox1.getSelectedItem();
+            String arg0 = textField1.getText();
+            String arg1 = textField2.getText();
+
+            try {
+                int arg0Value = Integer.parseInt(arg0);
+                int arg1Value = Integer.parseInt(arg1);
+
+
+                int numOfRecords = port.customMethod(arg0Value, arg1Value);
+
+
+                resultArea.setText("Number of records: " + numOfRecords);
+            } catch (NumberFormatException ex) {
+
+                resultArea.setText("Arguments must be integers.");
+            }
+        });
+
+        button2.addActionListener(e -> {
+            list = new ArrayList<>();
+            String selectedScreenType = (String) comboBox2.getSelectedItem();
+            XmlInputFormatArray records = port.getRecordsByScreenType(selectedScreenType);
+            list = records.getItem();
+            updateTable(list);
+        });
+
+        button3.addActionListener(e -> {
+            String selectedProducer = (String) comboBox1.getSelectedItem();
+            int numOfRecords = port.getNumberOfRecordsByProducer(selectedProducer);
+
+            resultArea.setText("Number of records: " + numOfRecords);
+        });
+
         pack();
         setVisible(true);
     }
@@ -102,6 +121,49 @@ public class MyFrame extends JFrame {
         for (String screenType : screenTypes.getItem()) {
             comboBox2.addItem(screenType);
         }
+    }
+
+    private void updateTable(List<XmlInputFormat> data) {
+
+        DefaultTableModel model = new DefaultTableModel();
+        model.addColumn("Manufacturer");
+        model.addColumn("Screen Size");
+        model.addColumn("Resolution");
+        model.addColumn("Screen type");
+        model.addColumn("Is Touchable");
+        model.addColumn("Processor Name");
+        model.addColumn("Core number");
+        model.addColumn("Frequency");
+        model.addColumn("RAM");
+        model.addColumn("Disc Storage");
+        model.addColumn("Disc type");
+        model.addColumn("Graphic Card Name");
+        model.addColumn("Graphics Card Memory");
+        model.addColumn("Operating System");
+        model.addColumn("Optical Drive");
+
+        for (XmlInputFormat inputFormat : data) {
+            String manufacturer = inputFormat.getManufacturer();
+            String screenSize = inputFormat.getScreen().getSize();
+            String resolution = inputFormat.getScreen().getResolution();
+            String screenType = inputFormat.getScreen().getType();
+            String isTouchable = inputFormat.getScreen().getTouch();
+            String processorName = inputFormat.getProcessor().getName();
+            String coreNumber = inputFormat.getProcessor().getPhysicalCores();
+            String freq = inputFormat.getProcessor().getClockSpeed();
+            String ram = inputFormat.getRam();
+            String discStorage = inputFormat.getDisc().getStorage();
+            String diskType = inputFormat.getDisc().getType();
+            String graphicCardName = inputFormat.getGraphicCard().getName();
+            String graphicsCardMemory = inputFormat.getGraphicCard().getMemory();
+            String operatingSystem = inputFormat.getOs();
+            String opticalDrive = inputFormat.getDiscReader();
+
+            model.addRow(new Object[]{manufacturer, screenSize, resolution, screenType, isTouchable,
+                    processorName, coreNumber, freq, ram, discStorage, diskType, graphicCardName, graphicsCardMemory, operatingSystem, opticalDrive});
+        }
+
+        table.setModel(model);
     }
 
 }
