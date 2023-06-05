@@ -104,7 +104,6 @@ public class MyFrame extends JFrame {
 
             resultArea.setText("Number of records: " + numOfRecords);
         });
-
         pack();
         setVisible(true);
     }
